@@ -1,4 +1,4 @@
-These instructions assume you have a standard `inner_unikernels` setup in your `$HOME`. While this benchmark can be ran from mainline, insturctions are not provided.
+These instructions assume you have a standard `inner_unikernels` setup in your `$HOME`. While this benchmark can be ran from mainline, instructions are not provided.
 
 ## Setting the instruction limit
 
@@ -37,6 +37,12 @@ Open the `Makefile`. The first arg is the number of intervals. The second is the
 
 Outliers are hard-coded in the script. You must modify the `generate_tests.sh` to change them.
 
+## Known Issues
+
+### 
+
+This benchmark uses a simple method of obtaining how much memory the verifier uses that isn't accurate due a race coniditon, however the measurement it gives is "good enough" for our use-case (seeing the relation). Additionally, the benchmark will report zero memory use if the workload is too light.
+
 ## Example Output
 
 Using
@@ -44,4 +50,12 @@ Using
 intervals=300
 increment=1000
 ```
+### Instructions and Time
+
 ![example.png](example.png)
+
+### Instructions and memory, no branches
+
+Doesn't include the first 100 files generated from the script.
+
+![examplemem-nobranch.png](examplemem-nobranch.png)
