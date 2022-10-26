@@ -13224,7 +13224,8 @@ static int do_check_main(struct bpf_verifier_env *env)
 static void print_verification_stats(struct bpf_verifier_env *env)
 {
 	int i;
-
+	printk("verifier time:%lld\n", div_u64(env->verification_time, 1000));
+	printk("verifier insn:%d\n", env->insn_processed);
 	if (env->log.level & BPF_LOG_STATS) {
 		verbose(env, "verification time %lld usec\n",
 			div_u64(env->verification_time, 1000));

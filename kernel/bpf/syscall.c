@@ -35,6 +35,10 @@
 
 #include <linux/moduleloader.h>
 
+#ifdef CONFIG_BPF_SIG
+#include <linux/verification.h>
+#endif
+
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
@@ -2166,7 +2170,7 @@ static bool is_perfmon_prog_type(enum bpf_prog_type prog_type)
 }
 
 /* last field in 'union bpf_attr' used by this command */
-#define	BPF_PROG_LOAD_LAST_FIELD fd_array
+#define	BPF_PROG_LOAD_LAST_FIELD sig_len
 
 static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 {
@@ -2284,6 +2288,47 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 			     bpf_prog_insn_size(prog)) != 0)
 		goto free_prog_sec;
 
+	err = bpf_obj_name_cpy(prog->aux->name, attr->prog_name,
+			       sizeof(attr->prog_name));
+	if (err < 0)
+		goto free_prog_sec;
+
+#ifdef CONFIG_BPF_SIG
+	if (attr->sig_len) {
+		char *signature;
+
+		signature = kmalloc(attr->sig_len, GFP_USER);
+		if (!signature) {
+			err = -ENOMEM;
+			goto free_prog_sec;
+		}
+
+		if (copy_from_user(signature, (char *)attr->signature, attr->sig_len)) {
+			err = -EFAULT;
+			kfree(signature);
+			goto free_prog_sec;
+		}
+
+		err = verify_pkcs7_signature(prog->insns,
+					     prog->len * sizeof(struct bpf_insn),
+					     signature, attr->sig_len,
+					     VERIFY_USE_SECONDARY_KEYRING,
+					     VERIFYING_BPF_SIGNATURE,
+					     NULL, NULL);
+		kfree(signature);
+
+		if (err) {
+			pr_warn("Invalid BPF signature for '%s': %pe\n",
+				prog->aux->name, ERR_PTR(err));
+			goto free_prog_sec;
+		}
+	} else if (IS_ENABLED(CONFIG_BPF_SIG_FORCE) && !uattr.is_kernel) {
+		pr_warn("Rejecting BPF '%s' with no signature\n", prog->aux->name);
+		err = -EKEYREJECTED;
+		goto free_prog_sec;
+	}
+#endif
+
 	prog->orig_prog = NULL;
 	prog->jited = 0;
 	prog->no_bpf = 0;
@@ -2303,10 +2348,6 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 		goto free_prog_sec;
 
 	prog->aux->load_time = ktime_get_boottime_ns();
-	err = bpf_obj_name_cpy(prog->aux->name, attr->prog_name,
-			       sizeof(attr->prog_name));
-	if (err < 0)
-		goto free_prog_sec;
 
 	/* run eBPF verifier */
 	err = bpf_check(&prog, attr, uattr);

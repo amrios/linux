@@ -51,7 +51,7 @@
 #define		BPF_X		0x08
 
 #ifndef BPF_MAXINSNS
-#define BPF_MAXINSNS 4096
+#define BPF_MAXINSNS 12288
 #endif
 
 #endif /* _UAPI__LINUX_BPF_COMMON_H__ */

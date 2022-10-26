@@ -77,9 +77,10 @@ INSTALL ?= install
 RM ?= rm -f
 
 FEATURE_USER = .bpftool
-FEATURE_TESTS = libbfd disassembler-four-args disassembler-init-styled reallocarray zlib libcap \
-	clang-bpf-co-re
-FEATURE_DISPLAY = libbfd zlib libcap clang-bpf-co-re
+FEATURE_TESTS = libbfd disassembler-four-args reallocarray zlib libcap \
+	clang-bpf-co-re libcrypto
+FEATURE_DISPLAY = libbfd disassembler-four-args zlib libcap \
+	clang-bpf-co-re libcrypto
 
 check_feat := 1
 NON_CHECK_FEAT_TARGETS := clean uninstall doc doc-clean doc-install doc-uninstall
@@ -100,9 +101,6 @@ endif
 ifeq ($(feature-disassembler-four-args), 1)
 CFLAGS += -DDISASM_FOUR_ARGS_SIGNATURE
 endif
-ifeq ($(feature-disassembler-init-styled), 1)
-    CFLAGS += -DDISASM_INIT_STYLED
-endif
 
 ifeq ($(feature-reallocarray), 0)
 CFLAGS += -DCOMPAT_NEED_REALLOCARRAY
@@ -115,6 +113,11 @@ CFLAGS += -DUSE_LIBCAP
 LIBS += -lcap
 endif
 
+ifeq ($(feature-libcrypto), 1)
+CFLAGS_CRYPTO := -DUSE_SIGN
+LIBS += -lcrypto
+endif
+
 include $(wildcard $(OUTPUT)*.d)
 
 all: $(OUTPUT)bpftool
@@ -122,6 +125,9 @@ all: $(OUTPUT)bpftool
 BFD_SRCS = jit_disasm.c
 
 SRCS = $(filter-out $(BFD_SRCS),$(wildcard *.c))
+ifneq ($(feature-libcrypto), 1)
+SRCS := $(filter-out sign.c,$(SRCS))
+endif
 
 ifeq ($(feature-libbfd),1)
   LIBS += -lbfd -ldl -lopcodes
@@ -135,6 +141,8 @@ ifneq ($(filter -lbfd,$(LIBS)),)
 CFLAGS += -DHAVE_LIBBFD_SUPPORT
 SRCS += $(BFD_SRCS)
 endif
+
+SRCS += sign.c
 
 BPFTOOL_BOOTSTRAP := $(BOOTSTRAP_OUTPUT)bpftool
 
@@ -198,10 +206,10 @@ $(OUTPUT)bpftool: $(OBJS) $(LIBBPF)
 	$(QUIET_LINK)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 $(BOOTSTRAP_OUTPUT)%.o: %.c | $(BOOTSTRAP_OUTPUT)
-	$(QUIET_CC)$(HOSTCC) $(CFLAGS) -c -MMD -o $@ $<
+	$(QUIET_CC)$(CC) $(CFLAGS) -c -MMD $< -o $@
 
 $(OUTPUT)%.o: %.c
-	$(QUIET_CC)$(CC) $(CFLAGS) -c -MMD -o $@ $<
+	$(QUIET_CC)$(CC) $(CFLAGS) $(CFLAGS_CRYPTO) -c -MMD -o $@ $<
 
 feature-detect-clean:
 	$(call QUIET_CLEAN, feature-detect)

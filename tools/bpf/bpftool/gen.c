@@ -434,6 +434,10 @@ static int gen_trace(struct bpf_object *obj, const char *obj_name, const char *h
 	DECLARE_LIBBPF_OPTS(gen_loader_opts, opts);
 	struct bpf_map *map;
 	int err = 0;
+#ifdef USE_SIGN
+	char *signature = NULL;
+	int sig_len = 0;
+#endif
 
 	err = bpf_object__gen_loader(obj, &opts);
 	if (err)
@@ -452,6 +456,19 @@ static int gen_trace(struct bpf_object *obj, const char *obj_name, const char *h
 	/* If there was no error during load then gen_loader_opts
 	 * are populated with the loader program.
 	 */
+
+#ifdef USE_SIGN
+	if (sign_bpf) {
+		sig_len = sign(sign_hash, sign_key, sign_cert,
+			       opts.insns, opts.insns_sz,
+			       (unsigned char **)&signature);
+		if (sig_len <= 0) {
+			p_err("failed to sign instructions");
+			err = -EINVAL;
+			goto out;
+		}
+	}
+#endif
 
 	/* finish generating 'struct skel' */
 	codegen("\
@@ -537,6 +554,18 @@ static int gen_trace(struct bpf_object *obj, const char *obj_name, const char *h
 		",
 		opts.insns_sz);
 	print_hex(opts.insns, opts.insns_sz);
+#ifdef USE_SIGN
+	if (sign_bpf) {
+		codegen("\
+			\n\
+			\";						    \n\
+				opts.sig_sz = %d;			    \n\
+				opts.signature = (void *)\"\\		    \n\
+			",
+			sig_len);
+		print_hex(signature, sig_len);
+	}
+#endif
 	codegen("\
 		\n\
 		\";							    \n\
@@ -1027,6 +1056,10 @@ static int do_help(int argc, char **argv)
 		"       %1$s %2$s help\n"
 		"\n"
 		"       " HELP_SPEC_OPTIONS " |\n"
+#ifdef USE_SIGN
+		"                    {-s|--sign} | {-H|--hash} |\n"
+		"                    {-c|--cert} | {-k|--key} |\n"
+#endif
 		"                    {-L|--use-loader} }\n"
 		"",
 		bin_name, "gen");
