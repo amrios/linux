@@ -101,6 +101,7 @@ endif
 ifeq ($(feature-disassembler-four-args), 1)
 CFLAGS += -DDISASM_FOUR_ARGS_SIGNATURE
 endif
+CFLAGS += -DDISASM_INIT_STYLED
 
 ifeq ($(feature-reallocarray), 0)
 CFLAGS += -DCOMPAT_NEED_REALLOCARRAY
@@ -113,10 +114,10 @@ CFLAGS += -DUSE_LIBCAP
 LIBS += -lcap
 endif
 
-ifeq ($(feature-libcrypto), 1)
+#ifeq ($(feature-libcrypto), 1)
 CFLAGS_CRYPTO := -DUSE_SIGN
 LIBS += -lcrypto
-endif
+#endif
 
 include $(wildcard $(OUTPUT)*.d)
 
@@ -125,9 +126,9 @@ all: $(OUTPUT)bpftool
 BFD_SRCS = jit_disasm.c
 
 SRCS = $(filter-out $(BFD_SRCS),$(wildcard *.c))
-ifneq ($(feature-libcrypto), 1)
+#ifneq ($(feature-libcrypto), 1)
 SRCS := $(filter-out sign.c,$(SRCS))
-endif
+#endif
 
 ifeq ($(feature-libbfd),1)
   LIBS += -lbfd -ldl -lopcodes
@@ -206,7 +207,7 @@ $(OUTPUT)bpftool: $(OBJS) $(LIBBPF)
 	$(QUIET_LINK)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 $(BOOTSTRAP_OUTPUT)%.o: %.c | $(BOOTSTRAP_OUTPUT)
-	$(QUIET_CC)$(CC) $(CFLAGS) -c -MMD $< -o $@
+	$(QUIET_CC)$(HOSTCC) $(CFLAGS) -c -MMD -o $@ $< 
 
 $(OUTPUT)%.o: %.c
 	$(QUIET_CC)$(CC) $(CFLAGS) $(CFLAGS_CRYPTO) -c -MMD -o $@ $<
