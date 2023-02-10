@@ -7996,6 +7996,7 @@ static int adjust_reg_min_max_vals(struct bpf_verifier_env *env,
 	return adjust_scalar_min_max_vals(env, insn, dst_reg, *src_reg);
 }
 
+// NOTE: Identifies register types for BTF
 /* check validity of 32-bit and 64-bit arithmetic operations */
 static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
 {
@@ -8004,38 +8005,38 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
 	int err;
 
 	if (opcode == BPF_END || opcode == BPF_NEG) {
-		if (opcode == BPF_NEG) {
-			if (BPF_SRC(insn->code) != 0 ||
-			    insn->src_reg != BPF_REG_0 ||
-			    insn->off != 0 || insn->imm != 0) {
-				verbose(env, "BPF_NEG uses reserved fields\n");
-				return -EINVAL;
-			}
-		} else {
-			if (insn->src_reg != BPF_REG_0 || insn->off != 0 ||
-			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64) ||
-			    BPF_CLASS(insn->code) == BPF_ALU64) {
-				verbose(env, "BPF_END uses reserved fields\n");
-				return -EINVAL;
-			}
-		}
-
-		/* check src operand */
-		err = check_reg_arg(env, insn->dst_reg, SRC_OP);
-		if (err)
-			return err;
-
-		if (is_pointer_value(env, insn->dst_reg)) {
-			verbose(env, "R%d pointer arithmetic prohibited\n",
-				insn->dst_reg);
-			return -EACCES;
-		}
-
-		/* check dest operand */
-		err = check_reg_arg(env, insn->dst_reg, DST_OP);
-		if (err)
-			return err;
-
+//		if (opcode == BPF_NEG) {
+//			if (BPF_SRC(insn->code) != 0 ||
+//			    insn->src_reg != BPF_REG_0 ||
+//			    insn->off != 0 || insn->imm != 0) {
+//				verbose(env, "BPF_NEG uses reserved fields\n");
+//				return -EINVAL;
+//			}
+//		} else {
+//			if (insn->src_reg != BPF_REG_0 || insn->off != 0 ||
+//			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64) ||
+//			    BPF_CLASS(insn->code) == BPF_ALU64) {
+//				verbose(env, "BPF_END uses reserved fields\n");
+//				return -EINVAL;
+//			}
+//		}
+//
+//		/* check src operand */
+//		err = check_reg_arg(env, insn->dst_reg, SRC_OP);
+//		if (err)
+//			return err;
+//
+//		if (is_pointer_value(env, insn->dst_reg)) {
+//			verbose(env, "R%d pointer arithmetic prohibited\n",
+//				insn->dst_reg);
+//			return -EACCES;
+//		}
+//
+//		/* check dest operand */
+//		err = check_reg_arg(env, insn->dst_reg, DST_OP);
+//		if (err)
+//			return err;
+//
 	} else if (opcode == BPF_MOV) {
 
 		if (BPF_SRC(insn->code) == BPF_X) {
@@ -8116,53 +8117,53 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
 		}
 
 	} else if (opcode > BPF_END) {
-		verbose(env, "invalid BPF_ALU opcode %x\n", opcode);
-		return -EINVAL;
+//		verbose(env, "invalid BPF_ALU opcode %x\n", opcode);
+//		return -EINVAL;
 
 	} else {	/* all other ALU ops: and, sub, xor, add, ... */
 
-		if (BPF_SRC(insn->code) == BPF_X) {
-			if (insn->imm != 0 || insn->off != 0) {
-				verbose(env, "BPF_ALU uses reserved fields\n");
-				return -EINVAL;
-			}
-			/* check src1 operand */
-			err = check_reg_arg(env, insn->src_reg, SRC_OP);
-			if (err)
-				return err;
-		} else {
-			if (insn->src_reg != BPF_REG_0 || insn->off != 0) {
-				verbose(env, "BPF_ALU uses reserved fields\n");
-				return -EINVAL;
-			}
-		}
-
-		/* check src2 operand */
-		err = check_reg_arg(env, insn->dst_reg, SRC_OP);
-		if (err)
-			return err;
-
-		if ((opcode == BPF_MOD || opcode == BPF_DIV) &&
-		    BPF_SRC(insn->code) == BPF_K && insn->imm == 0) {
-			verbose(env, "div by zero\n");
-			return -EINVAL;
-		}
-
-		if ((opcode == BPF_LSH || opcode == BPF_RSH ||
-		     opcode == BPF_ARSH) && BPF_SRC(insn->code) == BPF_K) {
-			int size = BPF_CLASS(insn->code) == BPF_ALU64 ? 64 : 32;
-
-			if (insn->imm < 0 || insn->imm >= size) {
-				verbose(env, "invalid shift %d\n", insn->imm);
-				return -EINVAL;
-			}
-		}
-
-		/* check dest operand */
-		err = check_reg_arg(env, insn->dst_reg, DST_OP_NO_MARK);
-		if (err)
-			return err;
-
+//		if (BPF_SRC(insn->code) == BPF_X) {
+//			if (insn->imm != 0 || insn->off != 0) {
+//				verbose(env, "BPF_ALU uses reserved fields\n");
+//				return -EINVAL;
+//			}
+//			/* check src1 operand */
+//			err = check_reg_arg(env, insn->src_reg, SRC_OP);
+//			if (err)
+//				return err;
+//		} else {
+//			if (insn->src_reg != BPF_REG_0 || insn->off != 0) {
+//				verbose(env, "BPF_ALU uses reserved fields\n");
+//				return -EINVAL;
+//			}
+//		}
+//
+//		/* check src2 operand */
+//		err = check_reg_arg(env, insn->dst_reg, SRC_OP);
+//		if (err)
+//			return err;
+//
+//		if ((opcode == BPF_MOD || opcode == BPF_DIV) &&
+//		    BPF_SRC(insn->code) == BPF_K && insn->imm == 0) {
+//			verbose(env, "div by zero\n");
+//			return -EINVAL;
+//		}
+//
+//		if ((opcode == BPF_LSH || opcode == BPF_RSH ||
+//		     opcode == BPF_ARSH) && BPF_SRC(insn->code) == BPF_K) {
+//			int size = BPF_CLASS(insn->code) == BPF_ALU64 ? 64 : 32;
+//
+//			if (insn->imm < 0 || insn->imm >= size) {
+//				verbose(env, "invalid shift %d\n", insn->imm);
+//				return -EINVAL;
+//			}
+//		}
+//
+//		/* check dest operand */
+//		err = check_reg_arg(env, insn->dst_reg, DST_OP_NO_MARK);
+//		if (err)
+//			return err;
+//
 		return adjust_reg_min_max_vals(env, insn);
 	}
 
@@ -10876,81 +10877,82 @@ static int do_check(struct bpf_verifier_env *env)
 		int err;
 
 		env->prev_insn_idx = prev_insn_idx;
-		if (env->insn_idx >= insn_cnt) {
-			verbose(env, "invalid insn idx %d insn_cnt %d\n",
-				env->insn_idx, insn_cnt);
-			return -EFAULT;
-		}
-
+//		if (env->insn_idx >= insn_cnt) {
+//			verbose(env, "invalid insn idx %d insn_cnt %d\n",
+//				env->insn_idx, insn_cnt);
+//			return -EFAULT;
+//		}
+//
 		insn = &insns[env->insn_idx];
 		class = BPF_CLASS(insn->code);
-
-		if (++env->insn_processed > BPF_COMPLEXITY_LIMIT_INSNS) {
-			verbose(env,
-				"BPF program is too large. Processed %d insn\n",
-				env->insn_processed);
-			return -E2BIG;
-		}
-
-		err = is_state_visited(env, env->insn_idx);
-		if (err < 0)
-			return err;
-		if (err == 1) {
-			/* found equivalent state, can prune the search */
-			if (env->log.level & BPF_LOG_LEVEL) {
-				if (do_print_state)
-					verbose(env, "\nfrom %d to %d%s: safe\n",
-						env->prev_insn_idx, env->insn_idx,
-						env->cur_state->speculative ?
-						" (speculative execution)" : "");
-				else
-					verbose(env, "%d: safe\n", env->insn_idx);
-			}
-			goto process_bpf_exit;
-		}
-
-		if (signal_pending(current))
-			return -EAGAIN;
-
-		if (need_resched())
-			cond_resched();
-
-		if (env->log.level & BPF_LOG_LEVEL2 ||
-		    (env->log.level & BPF_LOG_LEVEL && do_print_state)) {
-			if (env->log.level & BPF_LOG_LEVEL2)
-				verbose(env, "%d:", env->insn_idx);
-			else
-				verbose(env, "\nfrom %d to %d%s:",
-					env->prev_insn_idx, env->insn_idx,
-					env->cur_state->speculative ?
-					" (speculative execution)" : "");
-			print_verifier_state(env, state->frame[state->curframe]);
-			do_print_state = false;
-		}
-
-		if (env->log.level & BPF_LOG_LEVEL) {
-			const struct bpf_insn_cbs cbs = {
-				.cb_call	= disasm_kfunc_name,
-				.cb_print	= verbose,
-				.private_data	= env,
-			};
-
-			verbose_linfo(env, env->insn_idx, "; ");
-			verbose(env, "%d: ", env->insn_idx);
-			print_bpf_insn(&cbs, insn, env->allow_ptr_leaks);
-		}
-
-		if (bpf_prog_is_dev_bound(env->prog->aux)) {
-			err = bpf_prog_offload_verify_insn(env, env->insn_idx,
-							   env->prev_insn_idx);
-			if (err)
-				return err;
-		}
-
+//
+//		if (++env->insn_processed > BPF_COMPLEXITY_LIMIT_INSNS) {
+//			verbose(env,
+//				"BPF program is too large. Processed %d insn\n",
+//				env->insn_processed);
+//			return -E2BIG;
+//		}
+//
+//		err = is_state_visited(env, env->insn_idx);
+//		if (err < 0)
+//			return err;
+//		if (err == 1) {
+//			/* found equivalent state, can prune the search */
+//			if (env->log.level & BPF_LOG_LEVEL) {
+//				if (do_print_state)
+//					verbose(env, "\nfrom %d to %d%s: safe\n",
+//						env->prev_insn_idx, env->insn_idx,
+//						env->cur_state->speculative ?
+//						" (speculative execution)" : "");
+//				else
+//					verbose(env, "%d: safe\n", env->insn_idx);
+//			}
+//			goto process_bpf_exit;
+//		}
+//
+//		if (signal_pending(current))
+//			return -EAGAIN;
+//
+//		if (need_resched())
+//			cond_resched();
+//
+//		if (env->log.level & BPF_LOG_LEVEL2 ||
+//		    (env->log.level & BPF_LOG_LEVEL && do_print_state)) {
+//			if (env->log.level & BPF_LOG_LEVEL2)
+//				verbose(env, "%d:", env->insn_idx);
+//			else
+//				verbose(env, "\nfrom %d to %d%s:",
+//					env->prev_insn_idx, env->insn_idx,
+//					env->cur_state->speculative ?
+//					" (speculative execution)" : "");
+//			print_verifier_state(env, state->frame[state->curframe]);
+//			do_print_state = false;
+//		}
+//
+//		if (env->log.level & BPF_LOG_LEVEL) {
+//			const struct bpf_insn_cbs cbs = {
+//				.cb_call	= disasm_kfunc_name,
+//				.cb_print	= verbose,
+//				.private_data	= env,
+//			};
+//
+//			verbose_linfo(env, env->insn_idx, "; ");
+//			verbose(env, "%d: ", env->insn_idx);
+//			print_bpf_insn(&cbs, insn, env->allow_ptr_leaks);
+//		}
+//
+//		if (bpf_prog_is_dev_bound(env->prog->aux)) {
+//			err = bpf_prog_offload_verify_insn(env, env->insn_idx,
+//							   env->prev_insn_idx);
+//			if (err)
+//				return err;
+//		}
+//
 		regs = cur_regs(env);
 		sanitize_mark_insn_seen(env);
 		prev_insn_idx = env->insn_idx;
 
+		// Mostly trimmed
 		if (class == BPF_ALU || class == BPF_ALU64) {
 			err = check_alu_op(env, insn);
 			if (err)
@@ -11046,52 +11048,52 @@ static int do_check(struct bpf_verifier_env *env)
 			}
 
 		} else if (class == BPF_ST) {
-			if (BPF_MODE(insn->code) != BPF_MEM ||
-			    insn->src_reg != BPF_REG_0) {
-				verbose(env, "BPF_ST uses reserved fields\n");
-				return -EINVAL;
-			}
-			/* check src operand */
-			err = check_reg_arg(env, insn->dst_reg, SRC_OP);
-			if (err)
-				return err;
-
-			if (is_ctx_reg(env, insn->dst_reg)) {
-				verbose(env, "BPF_ST stores into R%d %s is not allowed\n",
-					insn->dst_reg,
-					reg_type_str[reg_state(env, insn->dst_reg)->type]);
-				return -EACCES;
-			}
-
-			/* check that memory (dst_reg + off) is writeable */
-			err = check_mem_access(env, env->insn_idx, insn->dst_reg,
-					       insn->off, BPF_SIZE(insn->code),
-					       BPF_WRITE, -1, false);
-			if (err)
-				return err;
+//			if (BPF_MODE(insn->code) != BPF_MEM ||
+//			    insn->src_reg != BPF_REG_0) {
+//				verbose(env, "BPF_ST uses reserved fields\n");
+//				return -EINVAL;
+//			}
+//			/* check src operand */
+//			err = check_reg_arg(env, insn->dst_reg, SRC_OP);
+//			if (err)
+//				return err;
+//
+//			if (is_ctx_reg(env, insn->dst_reg)) {
+//				verbose(env, "BPF_ST stores into R%d %s is not allowed\n",
+//					insn->dst_reg,
+//					reg_type_str[reg_state(env, insn->dst_reg)->type]);
+//				return -EACCES;
+//			}
+//
+//			/* check that memory (dst_reg + off) is writeable */
+//			err = check_mem_access(env, env->insn_idx, insn->dst_reg,
+//					       insn->off, BPF_SIZE(insn->code),
+//					       BPF_WRITE, -1, false);
+//			if (err)
+//				return err;
 
 		} else if (class == BPF_JMP || class == BPF_JMP32) {
 			u8 opcode = BPF_OP(insn->code);
 
-			env->jmps_processed++;
+//			env->jmps_processed++;
 			if (opcode == BPF_CALL) {
-				if (BPF_SRC(insn->code) != BPF_K ||
-				    insn->off != 0 ||
-				    (insn->src_reg != BPF_REG_0 &&
-				     insn->src_reg != BPF_PSEUDO_CALL &&
-				     insn->src_reg != BPF_PSEUDO_KFUNC_CALL) ||
-				    insn->dst_reg != BPF_REG_0 ||
-				    class == BPF_JMP32) {
-					verbose(env, "BPF_CALL uses reserved fields\n");
-					return -EINVAL;
-				}
+//				if (BPF_SRC(insn->code) != BPF_K ||
+//				    insn->off != 0 ||
+//				    (insn->src_reg != BPF_REG_0 &&
+//				     insn->src_reg != BPF_PSEUDO_CALL &&
+//				     insn->src_reg != BPF_PSEUDO_KFUNC_CALL) ||
+//				    insn->dst_reg != BPF_REG_0 ||
+//				    class == BPF_JMP32) {
+//					verbose(env, "BPF_CALL uses reserved fields\n");
+//					return -EINVAL;
+//				}
 
-				if (env->cur_state->active_spin_lock &&
-				    (insn->src_reg == BPF_PSEUDO_CALL ||
-				     insn->imm != BPF_FUNC_spin_unlock)) {
-					verbose(env, "function calls are not allowed while holding a lock\n");
-					return -EINVAL;
-				}
+//				if (env->cur_state->active_spin_lock &&
+//				    (insn->src_reg == BPF_PSEUDO_CALL ||
+//				     insn->imm != BPF_FUNC_spin_unlock)) {
+//					verbose(env, "function calls are not allowed while holding a lock\n");
+//					return -EINVAL;
+//				}
 				if (insn->src_reg == BPF_PSEUDO_CALL)
 					err = check_func_call(env, insn, &env->insn_idx);
 				else if (insn->src_reg == BPF_PSEUDO_KFUNC_CALL)
@@ -11101,49 +11103,49 @@ static int do_check(struct bpf_verifier_env *env)
 				if (err)
 					return err;
 			} else if (opcode == BPF_JA) {
-				if (BPF_SRC(insn->code) != BPF_K ||
-				    insn->imm != 0 ||
-				    insn->src_reg != BPF_REG_0 ||
-				    insn->dst_reg != BPF_REG_0 ||
-				    class == BPF_JMP32) {
-					verbose(env, "BPF_JA uses reserved fields\n");
-					return -EINVAL;
-				}
+//				if (BPF_SRC(insn->code) != BPF_K ||
+//				    insn->imm != 0 ||
+//				    insn->src_reg != BPF_REG_0 ||
+//				    insn->dst_reg != BPF_REG_0 ||
+//				    class == BPF_JMP32) {
+//					verbose(env, "BPF_JA uses reserved fields\n");
+//					return -EINVAL;
+//				}
 
 				env->insn_idx += insn->off + 1;
 				continue;
 
 			} else if (opcode == BPF_EXIT) {
-				if (BPF_SRC(insn->code) != BPF_K ||
-				    insn->imm != 0 ||
-				    insn->src_reg != BPF_REG_0 ||
-				    insn->dst_reg != BPF_REG_0 ||
-				    class == BPF_JMP32) {
-					verbose(env, "BPF_EXIT uses reserved fields\n");
-					return -EINVAL;
-				}
-
-				if (env->cur_state->active_spin_lock) {
-					verbose(env, "bpf_spin_unlock is missing\n");
-					return -EINVAL;
-				}
-
-				if (state->curframe) {
-					/* exit from nested function */
-					err = prepare_func_exit(env, &env->insn_idx);
-					if (err)
-						return err;
-					do_print_state = true;
-					continue;
-				}
-
-				err = check_reference_leak(env);
-				if (err)
-					return err;
-
-				err = check_return_code(env);
-				if (err)
-					return err;
+//				if (BPF_SRC(insn->code) != BPF_K ||
+//				    insn->imm != 0 ||
+//				    insn->src_reg != BPF_REG_0 ||
+//				    insn->dst_reg != BPF_REG_0 ||
+//				    class == BPF_JMP32) {
+//					verbose(env, "BPF_EXIT uses reserved fields\n");
+//					return -EINVAL;
+//				}
+//
+//				if (env->cur_state->active_spin_lock) {
+//					verbose(env, "bpf_spin_unlock is missing\n");
+//					return -EINVAL;
+//				}
+//
+//				if (state->curframe) {
+//					/* exit from nested function */
+//					err = prepare_func_exit(env, &env->insn_idx);
+//					if (err)
+//						return err;
+//					do_print_state = true;
+//					continue;
+//				}
+//
+//				err = check_reference_leak(env);
+//				if (err)
+//					return err;
+//
+//				err = check_return_code(env);
+//				if (err)
+//					return err;
 process_bpf_exit:
 				update_branch_counts(env, env->cur_state);
 				err = pop_stack(env, &prev_insn_idx,
