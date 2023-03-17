@@ -4123,7 +4123,6 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 	struct bpf_func_state *state;
 	int size, err = 0;
 
-	// dont remove until we isolate everything that uses `size`
 	size = bpf_size_to_bytes(bpf_size);
 	if (size < 0)
 		return size;
@@ -4137,19 +4136,17 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 	off += reg->off;
 
 	if (reg->type == PTR_TO_MAP_KEY) {
-//		if (t == BPF_WRITE) {
-//			verbose(env, "write to change key R%d not allowed\n", regno);
-//			return -EACCES;
-//		}
-//
-//		err = check_mem_region_access(env, regno, off, size,
-//					      reg->map_ptr->key_size, false);
-//		if (err)
-//			return err;
-//		if (value_regno >= 0)
-//			mark_reg_unknown(env, regs, value_regno);
-//
-//	I am problematic
+		if (t == BPF_WRITE) {
+			verbose(env, "write to change key R%d not allowed\n", regno);
+			return -EACCES;
+		}
+
+		err = check_mem_region_access(env, regno, off, size,
+					      reg->map_ptr->key_size, false);
+		if (err)
+			return err;
+		if (value_regno >= 0)
+			mark_reg_unknown(env, regs, value_regno);
 	} else if (reg->type == PTR_TO_MAP_VALUE) {
 		if (t == BPF_WRITE && value_regno >= 0 &&
 		    is_pointer_value(env, value_regno)) {
@@ -4182,15 +4179,15 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 			}
 		}
 	} else if (reg->type == PTR_TO_MEM) {
-//		if (t == BPF_WRITE && value_regno >= 0 &&
-//		    is_pointer_value(env, value_regno)) {
-//			verbose(env, "R%d leaks addr into mem\n", value_regno);
-//			return -EACCES;
-//		}
-//		err = check_mem_region_access(env, regno, off, size,
-//					      reg->mem_size, false);
-//		if (!err && t == BPF_READ && value_regno >= 0)
-//			mark_reg_unknown(env, regs, value_regno);
+		if (t == BPF_WRITE && value_regno >= 0 &&
+		    is_pointer_value(env, value_regno)) {
+			verbose(env, "R%d leaks addr into mem\n", value_regno);
+			return -EACCES;
+		}
+		err = check_mem_region_access(env, regno, off, size,
+					      reg->mem_size, false);
+		if (!err && t == BPF_READ && value_regno >= 0)
+			mark_reg_unknown(env, regs, value_regno);
 	} else if (reg->type == PTR_TO_CTX) {
 		enum bpf_reg_type reg_type = SCALAR_VALUE;
 		struct btf *btf = NULL;
@@ -4236,7 +4233,6 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 			regs[value_regno].type = reg_type;
 		}
 
-	// I am problematic
 	} else if (reg->type == PTR_TO_STACK) {
 		/* Basic bounds checks. */
 		err = check_stack_access_within_bounds(env, regno, off, size, ACCESS_DIRECT, t);
@@ -4289,44 +4285,43 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 		if (!err && value_regno >= 0)
 			mark_reg_unknown(env, regs, value_regno);
 	} else if (reg->type == PTR_TO_TP_BUFFER) {
-//		err = check_tp_buffer_access(env, reg, regno, off, size);
-//		if (!err && t == BPF_READ && value_regno >= 0)
-//			mark_reg_unknown(env, regs, value_regno);
-//	} else if (reg->type == PTR_TO_BTF_ID) {
-//		err = check_ptr_to_btf_access(env, regs, regno, off, size, t,
-//					      value_regno);
-//	} else if (reg->type == CONST_PTR_TO_MAP) {
-//		err = check_ptr_to_map_access(env, regs, regno, off, size, t,
-//					      value_regno);
+		err = check_tp_buffer_access(env, reg, regno, off, size);
+		if (!err && t == BPF_READ && value_regno >= 0)
+			mark_reg_unknown(env, regs, value_regno);
+	} else if (reg->type == PTR_TO_BTF_ID) {
+		err = check_ptr_to_btf_access(env, regs, regno, off, size, t,
+					      value_regno);
+	} else if (reg->type == CONST_PTR_TO_MAP) {
+		err = check_ptr_to_map_access(env, regs, regno, off, size, t,
+					      value_regno);
 	} else if (reg->type == PTR_TO_RDONLY_BUF) {
-//		if (t == BPF_WRITE) {
-//			verbose(env, "R%d cannot write into %s\n",
-//				regno, reg_type_str[reg->type]);
-//			return -EACCES;
-//		}
-//		err = check_buffer_access(env, reg, regno, off, size, false,
-//					  "rdonly",
-//					  &env->prog->aux->max_rdonly_access);
-//		if (!err && value_regno >= 0)
-//			mark_reg_unknown(env, regs, value_regno);
-//	} else if (reg->type == PTR_TO_RDWR_BUF) {
-//		err = check_buffer_access(env, reg, regno, off, size, false,
-//					  "rdwr",
-//					  &env->prog->aux->max_rdwr_access);
-//		if (!err && t == BPF_READ && value_regno >= 0)
-//			mark_reg_unknown(env, regs, value_regno);
-	} 
-//	else {
-//		verbose(env, "R%d invalid mem access '%s'\n", regno,
-//			reg_type_str[reg->type]);
-//		return -EACCES;
-//	}
-//
-//	if (!err && size < BPF_REG_SIZE && value_regno >= 0 && t == BPF_READ &&
-//	    regs[value_regno].type == SCALAR_VALUE) {
-//		/* b/h/w load zero-extends, mark upper bits as known 0 */
-//		coerce_reg_to_size(&regs[value_regno], size);
-//	}
+		if (t == BPF_WRITE) {
+			verbose(env, "R%d cannot write into %s\n",
+				regno, reg_type_str[reg->type]);
+			return -EACCES;
+		}
+		err = check_buffer_access(env, reg, regno, off, size, false,
+					  "rdonly",
+					  &env->prog->aux->max_rdonly_access);
+		if (!err && value_regno >= 0)
+			mark_reg_unknown(env, regs, value_regno);
+	} else if (reg->type == PTR_TO_RDWR_BUF) {
+		err = check_buffer_access(env, reg, regno, off, size, false,
+					  "rdwr",
+					  &env->prog->aux->max_rdwr_access);
+		if (!err && t == BPF_READ && value_regno >= 0)
+			mark_reg_unknown(env, regs, value_regno);
+	} else {
+		verbose(env, "R%d invalid mem access '%s'\n", regno,
+			reg_type_str[reg->type]);
+		return -EACCES;
+	}
+
+	if (!err && size < BPF_REG_SIZE && value_regno >= 0 && t == BPF_READ &&
+	    regs[value_regno].type == SCALAR_VALUE) {
+		/* b/h/w load zero-extends, mark upper bits as known 0 */
+		coerce_reg_to_size(&regs[value_regno], size);
+	}
 	return err;
 }
 
@@ -8169,7 +8164,7 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
 //		if (err)
 //			return err;
 //
-		return adjust_reg_min_max_vals(env, insn);
+//		return adjust_reg_min_max_vals(env, insn);
 	}
 
 	return 0;
@@ -10957,27 +10952,26 @@ static int do_check(struct bpf_verifier_env *env)
 		sanitize_mark_insn_seen(env);
 		prev_insn_idx = env->insn_idx;
 
-		// Mostly trimmed
 		if (class == BPF_ALU || class == BPF_ALU64) {
 			err = check_alu_op(env, insn);
 			if (err)
 				return err;
 
 		} else if (class == BPF_LDX) {
-//			enum bpf_reg_type *prev_src_type, src_reg_type;
+			enum bpf_reg_type *prev_src_type, src_reg_type;
 
 			/* check for reserved fields is already done */
 
 			/* check src operand */
-//			err = check_reg_arg(env, insn->src_reg, SRC_OP);
-//			if (err)
-//				return err;
-//
-//			err = check_reg_arg(env, insn->dst_reg, DST_OP_NO_MARK);
-//			if (err)
-//				return err;
-//
-//			src_reg_type = regs[insn->src_reg].type;
+			err = check_reg_arg(env, insn->src_reg, SRC_OP);
+			if (err)
+				return err;
+
+			err = check_reg_arg(env, insn->dst_reg, DST_OP_NO_MARK);
+			if (err)
+				return err;
+
+			src_reg_type = regs[insn->src_reg].type;
 
 			/* check that memory (src_reg + off) is readable,
 			 * the state of dst_reg will be updated by this func
@@ -10988,53 +10982,53 @@ static int do_check(struct bpf_verifier_env *env)
 			if (err)
 				return err;
 
-//			prev_src_type = &env->insn_aux_data[env->insn_idx].ptr_type;
-//
-//			if (*prev_src_type == NOT_INIT) {
-//				/* saw a valid insn
-//				 * dst_reg = *(u32 *)(src_reg + off)
-//				 * save type to validate intersecting paths
-//				 */
-//				*prev_src_type = src_reg_type;
-//
-//			} else if (reg_type_mismatch(src_reg_type, *prev_src_type)) {
-//				/* ABuser program is trying to use the same insn
-//				 * dst_reg = *(u32*) (src_reg + off)
-//				 * with different pointer types:
-//				 * src_reg == ctx in one branch and
-//				 * src_reg == stack|map in some other branch.
-//				 * Reject it.
-//				 */
-//				verbose(env, "same insn cannot be used with different pointers\n");
-//				return -EINVAL;
-//			}
+			prev_src_type = &env->insn_aux_data[env->insn_idx].ptr_type;
+
+			if (*prev_src_type == NOT_INIT) {
+				/* saw a valid insn
+				 * dst_reg = *(u32 *)(src_reg + off)
+				 * save type to validate intersecting paths
+				 */
+				*prev_src_type = src_reg_type;
+
+			} else if (reg_type_mismatch(src_reg_type, *prev_src_type)) {
+				/* ABuser program is trying to use the same insn
+				 * dst_reg = *(u32*) (src_reg + off)
+				 * with different pointer types:
+				 * src_reg == ctx in one branch and
+				 * src_reg == stack|map in some other branch.
+				 * Reject it.
+				 */
+				verbose(env, "same insn cannot be used with different pointers\n");
+				return -EINVAL;
+			}
 
 		} else if (class == BPF_STX) {
 			enum bpf_reg_type *prev_dst_type, dst_reg_type;
 
-//			if (BPF_MODE(insn->code) == BPF_ATOMIC) {
-//				err = check_atomic(env, env->insn_idx, insn);
-//				if (err)
-//					return err;
-//				env->insn_idx++;
-//				continue;
-//			}
-//
-//			if (BPF_MODE(insn->code) != BPF_MEM || insn->imm != 0) {
-//				verbose(env, "BPF_STX uses reserved fields\n");
-//				return -EINVAL;
-//			}
-//
-//			/* check src1 operand */
-//			err = check_reg_arg(env, insn->src_reg, SRC_OP);
-//			if (err)
-//				return err;
-//			/* check src2 operand */
-//			err = check_reg_arg(env, insn->dst_reg, SRC_OP);
-//			if (err)
-//				return err;
-//
-//			dst_reg_type = regs[insn->dst_reg].type;
+			if (BPF_MODE(insn->code) == BPF_ATOMIC) {
+				err = check_atomic(env, env->insn_idx, insn);
+				if (err)
+					return err;
+				env->insn_idx++;
+				continue;
+			}
+
+			if (BPF_MODE(insn->code) != BPF_MEM || insn->imm != 0) {
+				verbose(env, "BPF_STX uses reserved fields\n");
+				return -EINVAL;
+			}
+
+			/* check src1 operand */
+			err = check_reg_arg(env, insn->src_reg, SRC_OP);
+			if (err)
+				return err;
+			/* check src2 operand */
+			err = check_reg_arg(env, insn->dst_reg, SRC_OP);
+			if (err)
+				return err;
+
+			dst_reg_type = regs[insn->dst_reg].type;
 
 			/* check that memory (dst_reg + off) is writeable */
 			err = check_mem_access(env, env->insn_idx, insn->dst_reg,
@@ -11043,62 +11037,62 @@ static int do_check(struct bpf_verifier_env *env)
 			if (err)
 				return err;
 
-//			prev_dst_type = &env->insn_aux_data[env->insn_idx].ptr_type;
-//
-//			if (*prev_dst_type == NOT_INIT) {
-//				*prev_dst_type = dst_reg_type;
-//			} else if (reg_type_mismatch(dst_reg_type, *prev_dst_type)) {
-//				verbose(env, "same insn cannot be used with different pointers\n");
-//				return -EINVAL;
-//			}
+			prev_dst_type = &env->insn_aux_data[env->insn_idx].ptr_type;
+
+			if (*prev_dst_type == NOT_INIT) {
+				*prev_dst_type = dst_reg_type;
+			} else if (reg_type_mismatch(dst_reg_type, *prev_dst_type)) {
+				verbose(env, "same insn cannot be used with different pointers\n");
+				return -EINVAL;
+			}
 
 		} else if (class == BPF_ST) {
-//			if (BPF_MODE(insn->code) != BPF_MEM ||
-//			    insn->src_reg != BPF_REG_0) {
-//				verbose(env, "BPF_ST uses reserved fields\n");
-//				return -EINVAL;
-//			}
-//			/* check src operand */
-//			err = check_reg_arg(env, insn->dst_reg, SRC_OP);
-//			if (err)
-//				return err;
-//
-//			if (is_ctx_reg(env, insn->dst_reg)) {
-//				verbose(env, "BPF_ST stores into R%d %s is not allowed\n",
-//					insn->dst_reg,
-//					reg_type_str[reg_state(env, insn->dst_reg)->type]);
-//				return -EACCES;
-//			}
-//
-//			/* check that memory (dst_reg + off) is writeable */
-//			err = check_mem_access(env, env->insn_idx, insn->dst_reg,
-//					       insn->off, BPF_SIZE(insn->code),
-//					       BPF_WRITE, -1, false);
-//			if (err)
-//				return err;
+			if (BPF_MODE(insn->code) != BPF_MEM ||
+			    insn->src_reg != BPF_REG_0) {
+				verbose(env, "BPF_ST uses reserved fields\n");
+				return -EINVAL;
+			}
+			/* check src operand */
+			err = check_reg_arg(env, insn->dst_reg, SRC_OP);
+			if (err)
+				return err;
+
+			if (is_ctx_reg(env, insn->dst_reg)) {
+				verbose(env, "BPF_ST stores into R%d %s is not allowed\n",
+					insn->dst_reg,
+					reg_type_str[reg_state(env, insn->dst_reg)->type]);
+				return -EACCES;
+			}
+
+			/* check that memory (dst_reg + off) is writeable */
+			err = check_mem_access(env, env->insn_idx, insn->dst_reg,
+					       insn->off, BPF_SIZE(insn->code),
+					       BPF_WRITE, -1, false);
+			if (err)
+				return err;
 
 		} else if (class == BPF_JMP || class == BPF_JMP32) {
 			u8 opcode = BPF_OP(insn->code);
 
-//			env->jmps_processed++;
+			env->jmps_processed++;
 			if (opcode == BPF_CALL) {
-//				if (BPF_SRC(insn->code) != BPF_K ||
-//				    insn->off != 0 ||
-//				    (insn->src_reg != BPF_REG_0 &&
-//				     insn->src_reg != BPF_PSEUDO_CALL &&
-//				     insn->src_reg != BPF_PSEUDO_KFUNC_CALL) ||
-//				    insn->dst_reg != BPF_REG_0 ||
-//				    class == BPF_JMP32) {
-//					verbose(env, "BPF_CALL uses reserved fields\n");
-//					return -EINVAL;
-//				}
+				if (BPF_SRC(insn->code) != BPF_K ||
+				    insn->off != 0 ||
+				    (insn->src_reg != BPF_REG_0 &&
+				     insn->src_reg != BPF_PSEUDO_CALL &&
+				     insn->src_reg != BPF_PSEUDO_KFUNC_CALL) ||
+				    insn->dst_reg != BPF_REG_0 ||
+				    class == BPF_JMP32) {
+					verbose(env, "BPF_CALL uses reserved fields\n");
+					return -EINVAL;
+				}
 
-//				if (env->cur_state->active_spin_lock &&
-//				    (insn->src_reg == BPF_PSEUDO_CALL ||
-//				     insn->imm != BPF_FUNC_spin_unlock)) {
-//					verbose(env, "function calls are not allowed while holding a lock\n");
-//					return -EINVAL;
-//				}
+				if (env->cur_state->active_spin_lock &&
+				    (insn->src_reg == BPF_PSEUDO_CALL ||
+				     insn->imm != BPF_FUNC_spin_unlock)) {
+					verbose(env, "function calls are not allowed while holding a lock\n");
+					return -EINVAL;
+				}
 				if (insn->src_reg == BPF_PSEUDO_CALL)
 					err = check_func_call(env, insn, &env->insn_idx);
 				else if (insn->src_reg == BPF_PSEUDO_KFUNC_CALL)
@@ -11108,14 +11102,14 @@ static int do_check(struct bpf_verifier_env *env)
 				if (err)
 					return err;
 			} else if (opcode == BPF_JA) {
-//				if (BPF_SRC(insn->code) != BPF_K ||
-//				    insn->imm != 0 ||
-//				    insn->src_reg != BPF_REG_0 ||
-//				    insn->dst_reg != BPF_REG_0 ||
-//				    class == BPF_JMP32) {
-//					verbose(env, "BPF_JA uses reserved fields\n");
-//					return -EINVAL;
-//				}
+				if (BPF_SRC(insn->code) != BPF_K ||
+				    insn->imm != 0 ||
+				    insn->src_reg != BPF_REG_0 ||
+				    insn->dst_reg != BPF_REG_0 ||
+				    class == BPF_JMP32) {
+					verbose(env, "BPF_JA uses reserved fields\n");
+					return -EINVAL;
+				}
 
 				env->insn_idx += insn->off + 1;
 				continue;
