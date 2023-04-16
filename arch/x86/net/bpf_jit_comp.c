@@ -2519,6 +2519,7 @@ skip_init_addrs:
 		if (!padding && pass >= PADDING_PASSES)
 			padding = true;
 		proglen = do_jit(prog, addrs, image, rw_image, oldproglen, &ctx, padding);
+		// Error, outputted length is 0, hence invalid
 		if (proglen <= 0) {
 out_image:
 			image = NULL;
@@ -2536,6 +2537,8 @@ out_image:
 			}
 			goto out_addrs;
 		}
+		// Image becomes avail once ready. Lengths should be equal according to
+		// comment that is above.
 		if (image) {
 			if (proglen != oldproglen) {
 				pr_err("bpf_jit: proglen=%d != oldproglen=%d\n",
@@ -2544,6 +2547,7 @@ out_image:
 			}
 			break;
 		}
+		// This is the success case
 		if (proglen == oldproglen) {
 			/*
 			 * The number of entries in extable is the number of BPF_LDX

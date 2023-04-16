@@ -227,6 +227,16 @@ bpf_object__open_mem(const void *obj_buf, size_t obj_buf_sz,
 LIBBPF_API int bpf_object__load(struct bpf_object *obj);
 
 /**
+ * @brief **bpf_object__load_native()** loads precompiled BPF object into kernel.
+ * @param obj Pointer to a valid BPF object instance returned by **bpf_object__open*()** APIs
+ * @param native User pointer to start instruction of native BPF program.
+ * @return 0, on success; negative error code, otherwise, error code is
+ * stored in errno
+ */
+LIBBPF_API int bpf_object__load_native(struct bpf_object *obj, const int *native);
+
+
+/**
  * @brief **bpf_object__close()** closes a BPF object and releases all
  * resources.
  * @param obj Pointer to a valid BPF object
