@@ -25,6 +25,7 @@ LIBBPF_0.0.1 {
 		bpf_object__find_map_by_name;
 		bpf_object__kversion;
 		bpf_object__load;
+		bpf_object__load_native;
 		bpf_object__name;
 		bpf_object__open;
 		bpf_object__pin;

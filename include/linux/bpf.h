@@ -1374,6 +1374,7 @@ struct bpf_prog {
 	u16			jited:1,	/* Is our filter JIT'ed? */
 				jit_requested:1,/* archs need to JIT the prog */
 				gpl_compatible:1, /* Is filter GPL compatible? */
+				precompiled_bpf:1, /* Is the prog precompiled? */
 				cb_access:1,	/* Is control block accessed? */
 				dst_needed:1,	/* Do we need dst entry? */
 				blinding_requested:1, /* needs constant blinding */

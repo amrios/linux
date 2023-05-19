@@ -869,6 +869,7 @@ enum bpf_cmd {
 	BPF_MAP_DELETE_ELEM,
 	BPF_MAP_GET_NEXT_KEY,
 	BPF_PROG_LOAD,
+	BPF_PROG_LOAD_NATIVE,
 	BPF_OBJ_PIN,
 	BPF_OBJ_GET,
 	BPF_PROG_ATTACH,
@@ -1161,6 +1162,10 @@ enum bpf_link_type {
  */
 #define BPF_F_XDP_DEV_BOUND_ONLY	(1U << 6)
 
+/* Marks program as a pre-compiled BPF program. Experimental
+ */
+#define BPF_F_PRECOMPILED_BPF		(1U << 7)
+
 /* link_create.kprobe_multi.flags used in LINK_CREATE command for
  * BPF_TRACE_KPROBE_MULTI attach type to create return probe.
  */
@@ -1376,6 +1381,7 @@ union bpf_attr {
 		__u32		log_level;	/* verbosity level of verifier */
 		__u32		log_size;	/* size of user buffer */
 		__aligned_u64	log_buf;	/* user supplied buffer */
+		__u32		native_flags;
 		__u32		kern_version;	/* not used */
 		__u32		prog_flags;
 		char		prog_name[BPF_OBJ_NAME_LEN];
@@ -1403,6 +1409,8 @@ union bpf_attr {
 		__aligned_u64	fd_array;	/* array of FDs */
 		__aligned_u64	core_relos;
 		__u32		core_relo_rec_size; /* sizeof(struct bpf_core_relo) */
+		__aligned_u64	prog_precompiled; /* image */
+		__u32		prog_precompiled_size; /* userspace size of image */
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
@@ -6254,6 +6262,7 @@ struct bpf_prog_info {
 	__aligned_u64 map_ids;
 	char name[BPF_OBJ_NAME_LEN];
 	__u32 ifindex;
+	__u32 precompiled_bpf:1;
 	__u32 gpl_compatible:1;
 	__u32 :31; /* alignment pad */
 	__u64 netns_dev;

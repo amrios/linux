@@ -233,7 +233,7 @@ LIBBPF_API int bpf_object__load(struct bpf_object *obj);
  * @return 0, on success; negative error code, otherwise, error code is
  * stored in errno
  */
-LIBBPF_API int bpf_object__load_native(struct bpf_object *obj, const int *native);
+LIBBPF_API int bpf_object__load_native(struct bpf_object *obj, __u8 *native);
 
 
 /**

@@ -1525,6 +1525,7 @@ static int load_with_options(int argc, char **argv, bool first_prog_only)
 	struct map_replace *map_replace = NULL;
 	struct bpf_program *prog = NULL, *pos;
 	unsigned int old_map_fds = 0;
+	bool native_bpf = false;
 	const char *pinmaps = NULL;
 	bool auto_attach = false;
 	struct bpf_object *obj;
@@ -1533,15 +1534,47 @@ static int load_with_options(int argc, char **argv, bool first_prog_only)
 	unsigned int i, j;
 	__u32 ifindex = 0;
 	const char *file;
+	const char *fnative;
+	__u8 *native;
 	int idx, err;
+	int na_size;
 
 
 	if (!REQ_ARGS(2))
 		return -1;
-	file = GET_ARG();
-	pinfile = GET_ARG();
+	file = GET_ARG();	// bpf object file
+	pinfile = GET_ARG(); // bpf fs ref location
 
 	while (argc) {
+		if (is_prefix(*argv, "precompiled")) {
+			NEXT_ARG();
+
+			if (!REQ_ARGS(1))
+				goto err_free_reuse_maps;
+		
+			NEXT_ARG();
+			fnative = malloc(strlen(*argv) + 2);
+			strcat(file, *argv);
+			
+			char buf[10001];
+			int fd = open(fnative, O_CLOEXEC, O_RDONLY);
+			struct stat st;	
+			
+			if (fd < 0)
+				goto err_free_reuse_maps;
+
+			stat(fnative, &st);
+			na_size = st.st_size;
+			native = malloc(na_size + 2);
+			err = write(fd, native, na_size);
+			
+			if (err < 0) {
+				p_err("failed to allocate memory for native bpf");
+				goto err_free_reuse_maps;
+			}
+			native_bpf = true;
+		}
+
 		if (is_prefix(*argv, "type")) {
 			NEXT_ARG();
 
@@ -1741,7 +1774,11 @@ static int load_with_options(int argc, char **argv, bool first_prog_only)
 		goto err_close_obj;
 	}
 
-	err = bpf_object__load(obj);
+	if (native_bpf)
+		err = bpf_object__load_native(obj, native);
+	else
+		err = bpf_object__load(obj); // Where verification + JIT happens
+
 	if (err) {
 		p_err("failed to load object file");
 		goto err_close_obj;

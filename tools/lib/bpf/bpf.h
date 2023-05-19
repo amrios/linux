@@ -96,6 +96,9 @@ struct bpf_prog_load_opts {
 	__u32 log_level;
 	__u32 log_size;
 	char *log_buf;
+
+	__u8 *prog_precompiled;
+	__u8 prog_precompiled_sz;
 };
 #define bpf_prog_load_opts__last_field log_buf
 

@@ -2479,10 +2479,7 @@ static bool is_perfmon_prog_type(enum bpf_prog_type prog_type)
 /* last field in 'union bpf_attr' used by this command */
 #define	BPF_PROG_LOAD_LAST_FIELD core_relo_rec_size
 
-#ifdef CONFIG_NBPF_COMPILE
-#define NBPF_COMPILE 1
-
-static int bpf_nprog_compile(union bpf_attr *attr, bpfptr_t uattr, int fd)
+static int bpf_prog_load_native(union bpf_attr *attr, bpfptr_t uattr)
 {
 	enum bpf_prog_type type = attr->prog_type;
 	struct bpf_prog *prog, *dst_prog = NULL;
@@ -2490,9 +2487,6 @@ static int bpf_nprog_compile(union bpf_attr *attr, bpfptr_t uattr, int fd)
 	int err;
 	char license[128];
 	bool is_gpl;
-
-	if (fd < 0)
-		return -EINVAL;
 
 	if (CHECK_ATTR(BPF_PROG_LOAD))
 		return -EINVAL;
@@ -2503,7 +2497,8 @@ static int bpf_nprog_compile(union bpf_attr *attr, bpfptr_t uattr, int fd)
 				 BPF_F_SLEEPABLE |
 				 BPF_F_TEST_RND_HI32 |
 				 BPF_F_XDP_HAS_FRAGS |
-				 BPF_F_XDP_DEV_BOUND_ONLY))
+				 BPF_F_XDP_DEV_BOUND_ONLY |
+				 BPF_F_PRECOMPILED_BPF))
 		return -EINVAL;
 
 	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) &&
@@ -2643,8 +2638,19 @@ static int bpf_nprog_compile(union bpf_attr *attr, bpfptr_t uattr, int fd)
 	if (err < 0)
 		goto free_used_maps;
 
-	
-	// Purest point to attach
+	/* need to copy from user the hijacked image */
+	if (attr->prog_precompiled_size == 0) {
+		printk("nbpf: precompiled image has size of 0");
+		goto free_used_maps;
+	}
+
+	if (attr->prog_precompiled_size >= prog->jited_len) {
+		printk("nbpf: overflow detected, precompiled is bigger than the jit");
+		goto free_used_maps;
+	}
+
+	copy_from_bpfptr(prog->bpf_func, make_bpfptr(attr->prog_precompiled, uattr.is_kernel), attr->prog_precompiled_size);
+
 	err = bpf_prog_alloc_id(prog);
 	if (err)
 		goto free_used_maps;
@@ -2664,31 +2670,13 @@ static int bpf_nprog_compile(union bpf_attr *attr, bpfptr_t uattr, int fd)
 	 * be using bpf_prog_put() given the program is exposed.
 	 */
 	bpf_prog_kallsyms_add(prog);
-      	
-	// Create the procfs entry
-	struct proc_dir_entry *proc;
-	proc = create_proc_entry("nbpf_prog", 0644, NULL);
-	
-	if (!proc) {
-		remove_proc_entry("nbpf_prog", 0644, NULL);
-		printk(KERN_ALERT "nbpf: failed to create procfs entry\n");
-		return -ENOMEM;
-	}
+	perf_event_bpf_event(prog, PERF_BPF_EVENT_PROG_LOAD, 0);
+	bpf_audit_prog(prog, BPF_AUDIT_LOAD);
 
-	proc->mode = S_IFREG | S_IRUGO;
-	proc->uid = 0;
-	proc->gid = 0;
-	proc -> size = prog->jited_len;
-	
-	
-	/* perf_event_bpf_event(prog, PERF_BPF_EVENT_PROG_LOAD, 0);
-	* bpf_audit_prog(prog, BPF_AUDIT_LOAD);
-	*
-	* err = bpf_prog_new_fd(prog);
-	* if (err < 0)
-	*	bpf_prog_put(prog);
-	* return err;
-	*/
+	err = bpf_prog_new_fd(prog);
+	if (err < 0)
+		bpf_prog_put(prog);
+	return err;
 
 free_used_maps:
 	/* In case we have subprogs, we need to wait for a grace
@@ -2706,7 +2694,7 @@ free_prog:
 	bpf_prog_free(prog);
 	return err;
 }
-#endif
+
 
 static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 {
@@ -5219,6 +5207,9 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		break;
 	case BPF_PROG_LOAD:
 		err = bpf_prog_load(&attr, uattr);
+		break;
+	case BPF_PROG_LOAD_NATIVE:
+		err = bpf_prog_load_native(&attr, uattr);
 		break;
 	case BPF_OBJ_PIN:
 		err = bpf_obj_pin(&attr);
